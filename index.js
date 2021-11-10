@@ -17,15 +17,15 @@ function sign (message, address, secret) {
 class Properties {
   constructor (dht) {
       this.dht = dht
-      this.properties = []
+      this.check = []
 
       this.keepItUpdated()
   }
 
   async keepItUpdated(){
-    for(let i = 0;this.properties.length;i++){
+    for(let i = 0;this.check.length;i++){
       let res = await new Promise((resolve, reject) => {
-        this.repub(this.properties[i].address, (error, data) => {
+        this.repub(this.check[i].address, (error, data) => {
           if(error){
             reject(null)
           } else {
@@ -34,10 +34,10 @@ class Properties {
         })
       })
       if(res){
-        this.properties[i].infoHash = res.v.ih ? req.v.ih : this.properties[i].infoHash
-        this.properties[i].sequence = req.seq ? req.seq : this.properties[i].sequence
+        this.check[i].infoHash = res.v.ih ? req.v.ih : this.check[i].infoHash
+        this.check[i].sequence = req.seq ? req.seq : this.check[i].sequence
       }
-      await new Promise(resolve => setTimeout(resolve, 5000))
+      await new Promise(resolve => setTimeout(resolve, 3000))
     }
     setTimeout(this.keepItUpdated, 3600000)
   }
@@ -55,8 +55,8 @@ class Properties {
     let lookAtProperty = this.getProperty(address, false)
 
     if(lookAtProperty !== null){
-      this.properties = this.properties.filter(data => {return data.address !== address})
-      // this.properties.splice(lookAtProperty, 1)
+      this.check = this.check.filter(data => {return data.address !== address})
+      // this.check.splice(lookAtProperty, 1)
       return callback(null, 'address has been removed')
     } else {
       return callback(new Error('address is not managed'))
@@ -66,11 +66,11 @@ class Properties {
 
   getProperty(address, data){
     let iter = null
-    for(let i = 0;i < this.properties.length;i++){
-      if(this.properties[i].address === address){
-        iter = data ? this.properties[i] : i
+    for(let i = 0;i < this.check.length;i++){
+      if(this.check[i].address === address){
+        iter = data ? this.check[i] : i
         break
-        // return this.properties[i]
+        // return this.check[i]
       }
     }
     return iter
@@ -126,7 +126,7 @@ class Properties {
           const sequence = res.seq ? res.seq : 0
 
           if(manage){
-            this.properties.push({ address, infoHash, sequence, own: false })
+            this.check.push({ address, infoHash, sequence, own: false })
           }
           
           return callback(null, { address, infoHash, sequence, own: false })
@@ -188,7 +188,7 @@ class Properties {
             const magnetURI = `magnet:?xs=${BTPK_PREFIX}${infoData.address}`
   
             if(manage){
-              this.properties.push({address: infoData.address, infoHash: infoData.infoHash, sequence, own: true})
+              this.check.push({address: infoData.address, infoHash: infoData.infoHash, sequence, own: true})
             }
   
             callback(null, {magnetURI, infoHash: infoData.infoHash, sequence, address: infoData.address, secret: infoData.secret, own: true})
