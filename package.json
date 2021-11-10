@@ -1,0 +1,16 @@
+{
+  "name": "torrent-properties",
+  "version": "1.0.5",
+  "description": "BEP 46",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "simple-sha1": "^3.1.0",
+    "sodium-universal": "^3.0.4"
+  }
+}
