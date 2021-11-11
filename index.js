@@ -1,7 +1,6 @@
 const sodium = require('sodium-universal')
 const sha1 = require('simple-sha1')
 const fs = require('fs')
-const { json } = require('stream/consumers')
 
 const BTPK_PREFIX = 'urn:btpk:'
 const BITH_PREFIX = 'urn:btih:'
