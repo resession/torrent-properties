@@ -118,9 +118,9 @@ class Properties {
     let propertyData = null
     if(manage){
       propertyData = this.getProperty(address, true)
-      // if(propertyData){
-      //   return callback(new Error('address key is already managed'))
-      // }
+      if(propertyData){
+        return callback(new Error('address key is already managed'))
+      }
     }
 
     sha1(addressKey, (targetID) => {
@@ -132,21 +132,12 @@ class Properties {
           const sequence = res.seq ? res.seq : 0
 
           if(manage){
-            if(propertyData){
-              propertyData.infoHash = infoHash
-              propertyData.sequence = sequence
-            } else {
-              this.check.push({ address, infoHash, sequence, own: false })
-            }
+            this.check.push({ address, infoHash, sequence, own: false })
           }
           
           return callback(null, { address, infoHash, sequence, own: false })
         } else if(!res){
-          if(manage && propertyData){
-            return callback(null, propertyData)
-          } else {
-            return callback(new Error('Could not resolve address'))
-          }
+          return callback(new Error('Could not resolve address'))
         }
       })
     })
