@@ -166,7 +166,7 @@ class Properties {
 
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
-    const sequence =  propertyData ? propertyData.sequence + 1 : 1
+    const sequence =  propertyData ? propertyData.sequence + 1 : 0
 
     this.dht.put({k: buffAddKey, v: {ih: Buffer.from(infoHash, 'hex')}, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}, seq: sequence}, (putErr, hash) => {
       if(putErr){
