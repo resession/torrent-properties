@@ -1,5 +1,7 @@
 const sodium = require('sodium-universal')
 const sha1 = require('simple-sha1')
+const fs = require('fs')
+const { json } = require('stream/consumers')
 
 const BTPK_PREFIX = 'urn:btpk:'
 const BITH_PREFIX = 'urn:btih:'
@@ -19,6 +21,9 @@ class Properties {
       this.dht = dht
       this.check = []
 
+      if(fs.existsSync('./data')){
+        this.check = JSON.parse(fs.readFileSync('./data'))
+      }
       this.keepItUpdated()
   }
 
@@ -39,6 +44,7 @@ class Properties {
       }
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
+    fs.writeFileSync('./data', JSON.stringify(this.check))
     setTimeout(this.keepItUpdated, 3600000)
   }
 
@@ -76,33 +82,34 @@ class Properties {
     return iter
   }
 
-  updateProperty(address, callback){
-    if(!callback){
-      callback = noop
-    }
+  // updateProperty(address, callback){
+  //   if(!callback){
+  //     callback = noop
+  //   }
 
-    let lookAtProperty = this.getProperty(address, true)
+  //   let lookAtProperty = this.getProperty(address, true)
 
-    if(lookAtProperty){
-      this.resolve(address, false, (error, data) => {
-        if(error){
-          return callback(error)
-        } else {
-          lookAtProperty.infoHash = data.infoHash
-          lookAtProperty.sequence = data.sequence
-          return callback(null, lookAtProperty)
-        }
-      })
-    } else {
-      return callback(new Error('address key is not managed'))
-    }
+  //   if(lookAtProperty){
+  //     this.resolve(address, false, (error, data) => {
+  //       if(error){
+  //         return callback(error)
+  //       } else {
+  //         lookAtProperty.infoHash = data.infoHash
+  //         lookAtProperty.sequence = data.sequence
+  //         return callback(null, lookAtProperty)
+  //       }
+  //     })
+  //   } else {
+  //     return callback(new Error('address key is not managed'))
+  //   }
 
-  }
+  // }
 
   resolve (address, manage, callback) {
     if(!callback){
       callback = () => noop
     }
+
     address = this.addressFromLink(address)
     if(!address){
       return callback(new Error('address can not be parsed'))
@@ -112,9 +119,9 @@ class Properties {
     let propertyData = null
     if(manage){
       propertyData = this.getProperty(address, true)
-      if(propertyData){
-        return callback(new Error('address key is already managed'))
-      }
+      // if(propertyData){
+      //   return callback(new Error('address key is already managed'))
+      // }
     }
 
     sha1(addressKey, (targetID) => {
@@ -126,79 +133,72 @@ class Properties {
           const sequence = res.seq ? res.seq : 0
 
           if(manage){
-            this.check.push({ address, infoHash, sequence, own: false })
+            if(propertyData){
+              propertyData.infoHash = infoHash
+              propertyData.sequence = sequence
+            } else {
+              this.check.push({ address, infoHash, sequence, own: false })
+            }
           }
           
           return callback(null, { address, infoHash, sequence, own: false })
         } else if(!res){
-          return callback(new Error('Could not resolve address'))
+          if(manage && propertyData){
+            return callback(null, propertyData)
+          } else {
+            return callback(new Error('Could not resolve address'))
+          }
         }
       })
     })
   }
 
-  publish (infoData, manage, callback) {
+  publish (keypair, infoHash, manage, callback) {
 
     if (!callback) {
       callback = () => noop
     }
-    if(!infoData || !infoData.infoHash){
+    if(!infoHash){
       return callback(new Error('must have infoHash'))
-    } else if(!infoData.address || !infoData.secret){
-      infoData = {...infoData, ...this.createKeypair(false)}
+    } else if((!keypair) || (!keypair.address || !keypair.secret)){
+      keypair = this.createKeypair(false)
     }
 
     // const keypair = !address || !secret ? this.createKeypair(false) : {address, secret}
 
-    let checkinfoHash = null
+    let propertyData = null
     if(manage){
-      checkinfoHash = this.getProperty(infoData.address, data)
-      if(checkinfoHash.infoHash === infoData.infoHash){
-        return callback(new Error('address key and infoHash is already managed'))
+      propertyData = this.getProperty(keypair.address, true)
+      if(propertyData && propertyData.infoHash === infoHash){
+        return callback(new Error('address key is already attached to this infoHash'))
       }
     }
 
-    const buffAddKey = Buffer.from(infoData.address, 'hex')
-    const buffSecKey = Buffer.from(infoData.secret, 'hex')
+    const buffAddKey = Buffer.from(keypair.address, 'hex')
+    const buffSecKey = Buffer.from(keypair.secret, 'hex')
+    const sequence =  propertyData ? propertyData.sequence + 1 : 1
 
-    sha1(buffAddKey, (targetID) => {
-      const dht = this.dht
+    dht.put({k: buffAddKey, v: {ih: Buffer.from(infoHash, 'hex')}, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}, sequence}, (putErr, hash) => {
+      if(putErr){
+        return callback(putErr)
+      }
 
-      const opts = {
-        k: buffAddKey,
-        // seq: 0,
-        v: {
-          ih: Buffer.from(infoData.infoHash, 'hex')
-        },
-        sign: (buf) => {
-          return sign(buf, buffAddKey, buffSecKey)
+      const magnetURI = `magnet:?xs=${BTPK_PREFIX}${keypair.address}`
+
+      if(manage){
+        if(propertyData){
+          propertyData.infoHash = infoHash
+          propertyData.sequence = sequence
+        } else {
+          this.check.push({address: keypair.address, infoHash, sequence, own: true})
         }
       }
 
-      dht.get(targetID, (err, res) => {
-        if(err){
-          return callback(err)
-        } else {
-          const sequence = (res && res.seq) ? res.seq + 1 : 1
-          opts.seq = sequence
-  
-          dht.put(opts, (putErr, hash) => {
-            if (putErr) return callback(putErr)
-  
-            const magnetURI = `magnet:?xs=${BTPK_PREFIX}${infoData.address}`
-  
-            if(manage){
-              this.check.push({address: infoData.address, infoHash: infoData.infoHash, sequence, own: true})
-            }
-  
-            callback(null, {magnetURI, infoHash: infoData.infoHash, sequence, address: infoData.address, secret: infoData.secret, own: true})
-          })
-        }
-      })
+      callback(null, {magnetURI, infoHash, sequence, address: keypair.address, secret: keypair.secret, own: true, hash})
     })
   }
 
-  repub (address, callback) {
+  current(address, callback){
     if (!callback) {
       callback = () => noop
     }
