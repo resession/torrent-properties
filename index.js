@@ -26,10 +26,42 @@ class Properties {
       this.keepItUpdated()
   }
 
+  /*
+  when keepItUpdated() runs, it can save only the address, infoHash, and seq and save to file without getData and putData using array.map(),
+  then use startUp() to get back the getData and putData from the dht because saving all that data will make the package a lot bigger
+  */
+  // async startUp(){
+  //   if(fs.existsSync('./data')){
+  //     this.check = JSON.parse(fs.readFileSync('./data'))
+  //   }
+  //   for(let i = 0;i < this.check.length;i++){
+  //     let res = await new Promise((resolve, reject) => {
+  //       this.current(this.check[i].address, (error, data) => {
+  //         if(error){
+  //           reject(null)
+  //         } else {
+  //           resolve(data)
+  //         }
+  //       })
+  //     })
+  //     if(res){
+  //       this.check[i].infoHash = res.getData.v.ih ? res.v.ih : this.check[i].infoHash
+  //       this.check[i].sequence = res.getData.seq ? res.seq : this.check[i].sequence
+  //       this.check[i].getData = res.getData
+  //       this.check[i].putData = res.putData
+  //     }
+  //   }
+  // }
+
+  /*
+  when keepItUpdated() runs, it can save only the address, infoHash, and seq and save to file without getData and putData using array.map(),
+  then use startUp() to get back the getData and putData from the dht because saving all that data will make the package a lot bigger
+  */
+
   async keepItUpdated(){
     for(let i = 0;this.check.length;i++){
       let res = await new Promise((resolve, reject) => {
-        this.repub(this.check[i].address, (error, data) => {
+        this.current(this.check[i].address, (error, data) => {
           if(error){
             reject(null)
           } else {
@@ -38,12 +70,29 @@ class Properties {
         })
       })
       if(res){
-        this.check[i].infoHash = res.v.ih ? req.v.ih : this.check[i].infoHash
-        this.check[i].sequence = req.seq ? req.seq : this.check[i].sequence
+        this.check[i].infoHash = res.getData.v.ih ? res.v.ih : this.check[i].infoHash
+        this.check[i].sequence = res.getData.seq ? res.seq : this.check[i].sequence
+        this.check[i].getData = res.getData
+        this.check[i].putData = res.putData
+      } else if(this.check[i].isActive){
+        let shareCopy = await new Promise((resolve, reject) => {
+          this.dht.put(this.check[i].getData, (error, hash, number) => {
+            if(error){
+              reject(null)
+            } else {
+              resolve({hash, number})
+            }
+          })
+        })
+        if(shareCopy){
+          this.check[i].putData = shareCopy
+        } else {
+          this.check[i].isActive = false
+        }
       }
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
-    fs.writeFileSync('./data', JSON.stringify(this.check))
+    fs.writeFileSync('./data', JSON.stringify(this.check.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive}})))
     setTimeout(this.keepItUpdated, 3600000)
   }
 
@@ -136,7 +185,7 @@ class Properties {
               propertyData.infoHash = infoHash
               propertyData.sequence = sequence
             } else {
-              this.check.push({ address, infoHash, sequence, own: false })
+              this.check.push({ address, infoHash, sequence, own: false, isActive: true, getData: res })
             }
           }
           
@@ -176,8 +225,9 @@ class Properties {
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
     const sequence =  propertyData ? propertyData.sequence + 1 : 0
+    const getData = {k: buffAddKey, v: {ih: Buffer.from(infoHash, 'hex')}, seq: sequence, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
 
-    this.dht.put({k: buffAddKey, v: {ih: Buffer.from(infoHash, 'hex')}, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}, seq: sequence}, (putErr, hash) => {
+    this.dht.put(getData, (putErr, hash, number) => {
       if(putErr){
         return callback(putErr)
       }
@@ -189,7 +239,7 @@ class Properties {
           propertyData.infoHash = infoHash
           propertyData.sequence = sequence
         } else {
-          this.check.push({address: keypair.address, infoHash, sequence, own: true})
+          this.check.push({address: keypair.address, infoHash, sequence, own: true, isActive: true, putData: {hash, number}, getData})
         }
       }
 
@@ -207,16 +257,16 @@ class Properties {
     sha1(buffAddKey, (targetID) => {
       const dht = this.dht
 
-      dht.get(targetID, (err, res) => {
-        if (err) {
-          return callback(err)
+      dht.get(targetID, (getErr, getData) => {
+        if (getErr) {
+          return callback(getErr)
         }
 
-        dht.put(res, (err) => {
-          if(err){
-            return callback(err)
+        dht.put(getData, (putErr, hash, number) => {
+          if(putErr){
+            return callback(putErr)
           } else {
-            return callback(null, res)
+            return callback(null, {getData, putData: {hash, number}})
           }
         })
       })
