@@ -70,8 +70,8 @@ class Properties {
         })
       })
       if(res){
-        this.check[i].infoHash = res.getData.v.ih ? res.v.ih : this.check[i].infoHash
-        this.check[i].seq = res.getData.seq ? res.seq : this.check[i].seq
+        this.check[i].infoHash = res.getData.v && res.getData.v.ih ? res.getData.v.ih : this.check[i].infoHash
+        this.check[i].seq = res.getData.seq || res.getData.seq === 0 ? res.getData.seq : this.check[i].seq
         this.check[i].getData = res.getData
         this.check[i].putData = res.putData
       } else if(this.check[i].isActive){
