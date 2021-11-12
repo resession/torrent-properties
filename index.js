@@ -46,7 +46,7 @@ class Properties {
   //     })
   //     if(res){
   //       this.check[i].infoHash = res.getData.v.ih ? res.v.ih : this.check[i].infoHash
-  //       this.check[i].sequence = res.getData.seq ? res.seq : this.check[i].sequence
+  //       this.check[i].seq = res.getData.seq ? res.seq : this.check[i].seq
   //       this.check[i].getData = res.getData
   //       this.check[i].putData = res.putData
   //     }
@@ -71,7 +71,7 @@ class Properties {
       })
       if(res){
         this.check[i].infoHash = res.getData.v.ih ? res.v.ih : this.check[i].infoHash
-        this.check[i].sequence = res.getData.seq ? res.seq : this.check[i].sequence
+        this.check[i].seq = res.getData.seq ? res.seq : this.check[i].seq
         this.check[i].getData = res.getData
         this.check[i].putData = res.putData
       } else if(this.check[i].isActive){
@@ -143,7 +143,7 @@ class Properties {
   //         return callback(error)
   //       } else {
   //         lookAtProperty.infoHash = data.infoHash
-  //         lookAtProperty.sequence = data.sequence
+  //         lookAtProperty.seq = data.seq
   //         return callback(null, lookAtProperty)
   //       }
   //     })
@@ -178,18 +178,18 @@ class Properties {
           return callback(err)
         } else if(res){
           const infoHash = res.v.ih
-          const sequence = res.seq ? res.seq : 0
+          const seq = res.seq ? res.seq : 0
 
           if(manage){
             if(propertyData){
               propertyData.infoHash = infoHash
-              propertyData.sequence = sequence
+              propertyData.seq = seq
             } else {
-              this.check.push({ address, infoHash, sequence, own: false, isActive: true, getData: res })
+              this.check.push({ address, infoHash, seq, own: false, isActive: true, getData: res })
             }
           }
           
-          return callback(null, { address, infoHash, sequence, own: false })
+          return callback(null, { address, infoHash, seq, own: false })
         } else if(!res){
           if(manage && propertyData){
             return callback(null, propertyData)
@@ -224,8 +224,8 @@ class Properties {
 
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
-    const sequence =  propertyData ? propertyData.sequence + 1 : 0
-    const getData = {k: buffAddKey, v: {ih: Buffer.from(infoHash, 'hex')}, seq: sequence, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
+    const seq =  propertyData ? propertyData.seq + 1 : 0
+    const getData = {k: buffAddKey, v: {ih: Buffer.from(infoHash, 'hex')}, seq, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
 
     this.dht.put(getData, (putErr, hash, number) => {
       if(putErr){
@@ -237,13 +237,13 @@ class Properties {
       if(manage){
         if(propertyData){
           propertyData.infoHash = infoHash
-          propertyData.sequence = sequence
+          propertyData.seq = seq
         } else {
-          this.check.push({address: keypair.address, infoHash, sequence, own: true, isActive: true, putData: {hash, number}, getData})
+          this.check.push({address: keypair.address, infoHash, seq, own: true, isActive: true, putData: {hash, number}, getData})
         }
       }
 
-      callback(null, {magnetURI, infoHash, sequence, address: keypair.address, secret: keypair.secret, own: true, hash})
+      callback(null, {magnetURI, infoHash, seq, address: keypair.address, secret: keypair.secret, own: true, hash})
     })
   }
 
