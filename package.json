@@ -1,6 +1,6 @@
 {
   "name": "torrent-properties",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "BEP 46",
   "main": "index.js",
   "scripts": {
@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bittorrent-dht": "^10.0.2",
     "simple-sha1": "^3.1.0",
     "sodium-universal": "^3.0.4"
   }

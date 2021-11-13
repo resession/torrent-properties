@@ -1,3 +1,4 @@
+const DHT = require('bittorrent-dht')
 const sodium = require('sodium-universal')
 const sha1 = require('simple-sha1')
 const fs = require('fs')
@@ -17,7 +18,7 @@ function sign (message, address, secret) {
 
 class Properties {
   constructor (dht) {
-      this.dht = dht
+      this.dht = dht || new DHT()
       this.check = []
 
       if(fs.existsSync('./data')){
