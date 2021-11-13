@@ -1,5 +1,5 @@
 const Webtorrent = require('webtorrent')
-const Properties = require('torrent-properties')
+const Properties = require('../index')
 const sodium = require('sodium-universal')
 
 function verify (signature, message, publicKey) {

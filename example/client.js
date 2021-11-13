@@ -1,4 +1,4 @@
-const WebTorrentProperties = require('./index')
+const WebTorrentProperties = require('./extend')
 
 const client = new WebTorrentProperties(false)
 
