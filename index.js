@@ -71,8 +71,12 @@ class Properties {
         })
       })
       if(res){
-        this.check[i].infoHash = res.getData.v && res.getData.v.ih ? res.getData.v.ih : this.check[i].infoHash
-        this.check[i].seq = res.getData.seq || res.getData.seq === 0 ? res.getData.seq : this.check[i].seq
+        if(res.getData.v && res.getData.v.ih){
+          this.check[i].infoHash = res.getData.v.ih.toString('hex')
+        }
+        if(res.getData.seq){
+          this.check[i].seq = res.getData.seq
+        }
         this.check[i].getData = res.getData
         this.check[i].putData = res.putData
       } else if(this.check[i].isActive){
@@ -81,7 +85,7 @@ class Properties {
             if(error){
               reject(null)
             } else {
-              resolve({hash, number})
+              resolve({hash: hash.toString('hex'), number})
             }
           })
         })
@@ -94,7 +98,9 @@ class Properties {
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
     fs.writeFileSync('./data', JSON.stringify(this.check.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive}})))
-    setTimeout(this.keepItUpdated, 3600000)
+    setTimeout(() => {
+      this.keepItUpdated()
+    }, 3600000)
   }
 
   // might need it later, if we have a 100 torrents, then it would mean 100 lookups one after another, would be good to delay it for a few seconds
@@ -102,19 +108,16 @@ class Properties {
   //   return new Promise(resolve => setTimeout(resolve, milliSec))
   // }
 
-  removeProperty(address, callback){
-    if(!callback){
-      callback = noop
-    }
+  removeProperty(address){
 
     let lookAtProperty = this.getProperty(address, false)
 
     if(lookAtProperty !== null){
       this.check = this.check.filter(data => {return data.address !== address})
       // this.check.splice(lookAtProperty, 1)
-      return callback(null, 'address has been removed')
+      return 'address has been removed'
     } else {
-      return callback(new Error('address is not managed'))
+      return 'address is not managed'
     }
 
   }
@@ -178,7 +181,7 @@ class Properties {
         if(err){
           return callback(err)
         } else if(res){
-          const infoHash = res.v.ih
+          const infoHash = res.v.ih.toString('hex')
           const seq = res.seq ? res.seq : 0
 
           if(manage){
@@ -202,30 +205,33 @@ class Properties {
     })
   }
 
-  publish (keypair, infoHash, manage, callback) {
+  publish (keypair, infoHash, seq, manage, callback) {
 
     if (!callback) {
       callback = () => noop
     }
-    if(!infoHash){
+    if(!infoHash || typeof(infoHash) !== 'string'){
       return callback(new Error('must have infoHash'))
-    } else if((!keypair) || (!keypair.address || !keypair.secret)){
+    }
+    if(!seq || typeof(seq) !== 'number'){
+      seq = 1
+    }
+    if((!keypair) || (!keypair.address || !keypair.secret)){
       keypair = this.createKeypair(false)
     }
-
-    // const keypair = !address || !secret ? this.createKeypair(false) : {address, secret}
-
     let propertyData = null
     if(manage){
       propertyData = this.getProperty(keypair.address, true)
       if(propertyData && propertyData.infoHash === infoHash){
         return callback(new Error('address key is already attached to this infoHash'))
       }
+      if(propertyData && propertyData.seq){
+        seq = propertyData.seq + 1
+      }
     }
 
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
-    const seq =  propertyData ? propertyData.seq + 1 : 0
     const getData = {k: buffAddKey, v: {ih: Buffer.from(infoHash, 'hex')}, seq, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
 
     this.dht.put(getData, (putErr, hash, number) => {
@@ -244,7 +250,7 @@ class Properties {
         }
       }
 
-      callback(null, {magnetURI, infoHash, seq, address: keypair.address, secret: keypair.secret, own: true, hash})
+      callback(null, {magnetURI, infoHash, seq, address: keypair.address, secret: keypair.secret, own: true, hash: hash.toString('hex')})
     })
   }
 
@@ -267,7 +273,7 @@ class Properties {
           if(putErr){
             return callback(putErr)
           } else {
-            return callback(null, {getData, putData: {hash, number}})
+            return callback(null, {getData, putData: {hash: hash.toString('hex'), number}})
           }
         })
       })

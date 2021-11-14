@@ -19,22 +19,22 @@ class WebTorrentProperties extends Webtorrent {
             } else {
                 this.add(propData.infoHash, opts, torrent => {
                     torrent.address = propData.address
-                    torrent.sequence = propData.sequence
+                    torrent.seq = propData.seq
                     torrent.own = propData.own
                     return callback(torrent, propData)
                 })
             }
         })
     }
-    uploadProp(keypair, manage, data, opts, callback){
+    uploadProp(keypair, seq, manage, data, opts, callback){
         this.seed(data, opts, torrent => {
-            this.properties.publish(keypair, torrent.infoHash, manage, (resError, propData) => {
+            this.properties.publish(keypair, torrent.infoHash, seq, manage, (resError, propData) => {
                 if(resError){
                     console.log(resError)
                     return this.emit(resError)
                 } else {
                     torrent.address = propData.address
-                    torrent.sequence = propData.sequence
+                    torrent.seq = propData.seq
                     torrent.own = propData.own
                     return callback(torrent, propData)
                 }
