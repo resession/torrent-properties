@@ -60,7 +60,7 @@ class Properties {
   */
 
   async keepItUpdated(){
-    for(let i = 0;this.check.length;i++){
+    for(let i = 0;i < this.check.length;i++){
       let res = await new Promise((resolve, reject) => {
         this.current(this.check[i].address, (error, data) => {
           if(error){
@@ -71,10 +71,10 @@ class Properties {
         })
       })
       if(res){
-        if(res.getData.v && res.getData.v.ih){
-          this.check[i].infoHash = res.getData.v.ih.toString('hex')
+        if(Buffer.isBuffer(res.getData.v)){
+          this.check[i].infoHash = res.getData.v.toString('hex')
         }
-        if(res.getData.seq){
+        if(typeof(res.getData.seq) === 'number'){
           this.check[i].seq = res.getData.seq
         }
         this.check[i].getData = res.getData
@@ -97,10 +97,8 @@ class Properties {
       }
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
-    fs.writeFileSync('./data', JSON.stringify(this.check.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive}})))
-    setTimeout(() => {
-      this.keepItUpdated()
-    }, 3600000)
+    fs.writeFileSync('./data', JSON.stringify(this.check.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive, own: main.own}})))
+    setTimeout(() => {this.keepItUpdated()}, 3600000)
   }
 
   // might need it later, if we have a 100 torrents, then it would mean 100 lookups one after another, would be good to delay it for a few seconds
@@ -181,8 +179,13 @@ class Properties {
         if(err){
           return callback(err)
         } else if(res){
-          const infoHash = res.v.ih.toString('hex')
-          const seq = res.seq ? res.seq : 0
+
+          if(!Buffer.isBuffer(res.v) || typeof(res.seq) !== 'number'){
+            return callback(new Error('data has invalid values'))
+          }
+          
+          const infoHash = res.v.toString('hex')
+          const seq = res.seq
 
           if(manage){
             if(propertyData){
@@ -214,7 +217,7 @@ class Properties {
       return callback(new Error('must have infoHash'))
     }
     if(!seq || typeof(seq) !== 'number'){
-      seq = 1
+      seq = 0
     }
     if((!keypair) || (!keypair.address || !keypair.secret)){
       keypair = this.createKeypair(false)
@@ -222,17 +225,17 @@ class Properties {
     let propertyData = null
     if(manage){
       propertyData = this.getProperty(keypair.address, true)
-      if(propertyData && propertyData.infoHash === infoHash){
-        return callback(new Error('address key is already attached to this infoHash'))
-      }
-      if(propertyData && propertyData.seq){
+      if(propertyData){
         seq = propertyData.seq + 1
+        if(propertyData.infoHash === infoHash){
+          return callback(new Error('address key is already attached to this infoHash'))
+        }
       }
     }
 
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
-    const getData = {k: buffAddKey, v: {ih: Buffer.from(infoHash, 'hex')}, seq, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
+    const getData = {k: buffAddKey, v: Buffer.from(infoHash, 'hex'), seq, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
 
     this.dht.put(getData, (putErr, hash, number) => {
       if(putErr){
